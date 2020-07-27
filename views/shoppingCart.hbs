@@ -1,0 +1,24 @@
+<div class="alert alert-secondary mb-3" role="alert">
+    This example shows you how to build simple shopping carts using XcooBee pay-urls. We have added a simple script that will reload your cart i-frame as users are clicking on your links. The links can be generated.
+</div>
+<div class="row m-0 justify-content-center">
+    <h5>Our products</h5>
+</div>
+<div class="row m-0">
+    <div class="col-6 p-2 d-flex flex-row">
+        {{#each products}}
+            <div class="card m-2 product_item" style="width: 33%">
+                <a href="#" class="product_link"><img class="card-img-top" src="{{this.image}}"></a>
+                <div class="card-body">
+                    <a href="#" class="product_link">
+                        <h5 class="card-title text-center"><span class="product_name">{{this.name}}</span> - $<span class="product_price">{{this.price}}</span></h5>
+                    </a>
+                </div>
+            </div>
+        {{/each}}
+    </div>
+    <div class="col-6 p-2">
+        <iframe id="shopping_cart"></iframe>
+    </div>
+</div>
+
