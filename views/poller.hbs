@@ -1,36 +1,46 @@
 <div class="alert alert-secondary mb-3" role="alert">
-    This example shows you how to use the polling method to receive updates about events from XcooBee. You can of course configure XcooBee to send the events directly to your internet connected servers via webhook post. We will use the XcooBee JavascriptSDK to process the events including decryption.This is required for Full Cycle Payment Processing where the XcooBee system can inform you about success/failure of payments.
+  This example shows you how to use the polling method to receive updates about events from XcooBee. You can of course
+  configure XcooBee to send the events directly to your internet connected servers via webhook post. We will use the
+  XcooBee JavascriptSDK to process the events including decryption.This is required for Full Cycle Payment Processing
+  where the XcooBee system can inform you about success/failure of payments.
 </div>
-<div class="row m-0">
-    <div class="col-md-6">
-        <form action="#" id="xcoobee_demo_form" method="post">
-            <div class="form-group">
-                <label for="xcoobee_poll_interval">Poll Interval in seconds (0, 60-600):</label>
-                <input type="number" data-rule-pollinterval="true" value="0" class="form-control" id="xcoobee_poll_interval" placeholder="Enter interval in seconds 0 or min. 60 - max 600" name="xcoobee_poll_interval">
-            </div>
-            <button type="submit" id="start_poll" name="start_poll" class="btn btn-primary">Start Polling</button>
-            <a id="stop_poll" class="btn btn-default">Stop Polling</a>
-            <button type="submit" id="manual_poll" name="manual_poll" class="btn btn-primary">Manual Poll</button>
-            <div class="xcoobee_clock alert alert-info">
-                <p>waiting for poll</p>
-            </div>
-
-        </form>
+<div class="row">
+  <div class="col-md-6">
+    <form action="#" id="xcoobee_demo_form" method="post">
+      <div class="form-group">
+        <label for="xcoobee_poll_interval">Poll Interval in seconds (0, 60-600):</label>
+        <input type="number"
+               data-rule-pollinterval="true"
+               value="0"
+               class="form-control"
+               id="xcoobee_poll_interval"
+               placeholder="Enter interval in seconds 0 or min. 60 - max 600"
+               name="xcoobee_poll_interval">
+      </div>
+      <button type="submit" id="start_poll" name="start_poll" class="btn btn-primary">Start Polling</button>
+      <button type="button" id="stop_poll" class="btn btn-light">Stop Polling</button>
+      <button type="submit" id="manual_poll" name="manual_poll" class="btn btn-light">Manual Poll</button>
+      <div class="xcoobee_clock alert alert-info">
+        <div>waiting for poll</div>
+      </div>
+    </form>
+  </div>
+  <div class="col-md-6">
+    <div class="table-responsive">
+      <table id="xcoobee_api_result" class="table table-responsive table-hover">
+        <thead>
+        <tr>
+          <th width="25%">Event</th>
+          <th width="25%">Payload</th>
+          <th width="20%">Reference</th>
+          <th width="200px">Date Created</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
-    <div class="col-6">
-        <div class="xcoobee_loader">
-            <img alt="" src="/images/loader.svg"/>
-        </div>
-        <div class="table-responsive">
-            <table id="xcoobee_api_result" class="table table-responsive table-hover">
-                <thead>
-                <th>Event Type</th>
-                <th>Payload</th>
-                <th>Reference Type</th>
-                <th>Date Created</th>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+    <div class="xcoobee_loader">
+      <img alt="" src="/images/loader.svg" />
     </div>
+  </div>
 </div>
