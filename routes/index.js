@@ -4,9 +4,8 @@ const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
-const stream = require("stream");
 const Handlebars = require("handlebars");
-const wkhtmltopdf = require("wkhtmltopdf");
+const pdf = require('html-pdf');
 const { NodeXcooBeePaymentSDK } = require("@xcoobee/payment-sdk");
 
 const router = express.Router();
@@ -37,10 +36,13 @@ router
                 const template = fs.readFileSync(path.resolve(__dirname, "../templates/invoice.hbs"), "utf8");
                 const tmpl = Handlebars.compile(template);
                 const tmp = tmpl({ ...params, qr, formUrl: sdk.createPayUrl(params) });
-                const filePath = path.resolve(os.tmpdir(), "test.pdf");
 
-                wkhtmltopdf(tmp, { output: filePath }, () => {
-                    res.download(filePath);
+                pdf.create(tmp).toStream((err, stream) => {
+                    if (err) {
+                        return next(err);
+                    }
+                    res.attachment("invoice.pdf");
+                    stream.pipe(res)
                 });
             })
             .catch(err => next(err));

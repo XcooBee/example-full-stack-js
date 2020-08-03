@@ -260,7 +260,7 @@ $(() => {
                 const properties = {};
                 const formData = $("#invoice_form").serializeArray();
                 formData.forEach((item) => {
-                    properties[item.name] = item.value;
+                    properties[item.name] = encodeURIComponent(item.value);
                 });
 
                 window.open(`/generate-invoice?ref=${properties.payment_reference}&amount=${properties.payment_amount}&campaignId=${settings.campaign_id}`, "_blank");

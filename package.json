@@ -5,8 +5,7 @@
   "description": "XcooBee SDK and Payment SDK usage example",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon server.js",
-    "dev": "node server.js"
+    "start": "nodemon server.js"
   },
   "repository": {
     "type": "git",
@@ -23,7 +22,8 @@
   "devDependencies": {
     "eslint": "^5.12.0",
     "eslint-config-airbnb-base": "^13.1.0",
-    "eslint-plugin-import": "^2.14.0"
+    "eslint-plugin-import": "^2.14.0",
+    "nodemon": "^2.0.4"
   },
   "dependencies": {
     "@xcoobee/payment-sdk": "^0.9.0",
@@ -32,11 +32,10 @@
     "express-async-errors": "^3.1.1",
     "handlebars": "^4.7.6",
     "hbs": "^4.1.1",
+    "html-pdf": "^2.2.0",
     "http-status-codes": "^1.4.0",
     "morgan": "^1.10.0",
-    "nodemon": "^2.0.4",
     "winston": "^3.3.3",
-    "wkhtmltopdf": "^0.3.4",
     "xcoobee-sdk": "^1.3.0"
   }
 }
