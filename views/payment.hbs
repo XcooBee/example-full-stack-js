@@ -1,0 +1,58 @@
+<div class="alert alert-secondary mb-3" role="alert">
+  This example shows you a full cycle. You can ask for an amount and enter a test credit card number like 4111 1111 1111
+  1111 and observe how the backend processes this payment for you and returns events data via (webhook or polling). For
+  our example we will rely on polling since this is most likely running on developer desktop behind a firewall. For
+  production you would more likely rely on webhook post. You will need to configure <a href="/poller">Poll Events</a>
+  before you can see a response return.For mobile apps consider also supplying external device ID, the response will
+  return it and allow you to send push notifications if needed.
+</div>
+<div class="row">
+  <div class="col-md-3">
+    <form action="#" class="mt-3" id="payment_form">
+      <div class="form-group">
+        <label for="payment_reference">Details for payment (optional)</label>
+        <input type="text" value="" class="form-control" id="payment_reference" name="payment_reference">
+      </div>
+      <div class="form-group">
+        <label for="payment_amount">Total amount (required)</label>
+        <input type="number"
+               value="10"
+               step="0.01"
+               min="0.5"
+               required
+               oninvalid="this.setCustomValidity('This field is required')"
+               oninput="this.setCustomValidity('')"
+               class="form-control"
+               id="payment_amount"
+               name="payment_amount">
+      </div>
+      <div class="form-group">
+        <label for="external_device_id">External device ID (optional)</label>
+        <input type="text" value="" class="form-control" id="external_device_id" name="external_device_id">
+      </div>
+      <button class="btn btn-outline-primary btn-block" id="request_payment">Request</button>
+    </form>
+  </div>
+  <div class="col-md-8">
+    <iframe id="payment_cycle"></iframe>
+  </div>
+  <div class="col-md-8 offset-md-3">
+    <div class="table-responsive">
+      <table id="xcoobee_api_result" class="table table-responsive table-hover">
+        <thead>
+        <tr>
+          <th width="20%">Event</th>
+          <th width="40%">Payload</th>
+          <th width="20%">Reference</th>
+          <th width="200px">Date Created</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="xcoobee_loader">
+      <img alt="" src="/images/loader.svg" />
+    </div>
+  </div>
+</div>
+
