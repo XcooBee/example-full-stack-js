@@ -1,7 +1,7 @@
 /* eslint-disable */
 
 const COOKIE_NAME = "settings";
-const slackHookUrl = "https://hooks.slack.com/services/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";
+const slackHookUrl = "https://hooks.slack.com/services/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";
 
 const parseJSON = (str) => {
     try {
