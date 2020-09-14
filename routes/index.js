@@ -7,6 +7,8 @@ const Handlebars = require("handlebars");
 const pdf = require("html-pdf");
 const { NodeXcooBeePaymentSDK } = require("@xcoobee/payment-sdk");
 
+const rp = require("request-promise");
+
 const router = express.Router();
 
 router
@@ -65,6 +67,18 @@ router
     })
     .get("/kitchen-orders", (req, res) => {
         res.render("kitchenOrders", { title: "Kitchen Orders" });
+    })
+    .post("/post-to-slack", (req, res, next) => {
+        rp
+            .post({
+                uri: req.body.hookUrl,
+                body: {
+                    text: req.body.text,
+                },
+                json: true,
+            })
+            .then(() => res.send())
+            .catch(err => next(err));
     });
 
 module.exports = router;

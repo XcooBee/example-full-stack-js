@@ -1,7 +1,6 @@
 /* eslint-disable */
 
-const COOKIE_NAME = "settings";
-const slackHookUrl = "https://hooks.slack.com/services/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";
+const SETTINGS_KEY = "xb_efa_settings";
 
 const parseJSON = (str) => {
     try {
@@ -28,22 +27,28 @@ $(() => {
     alertBlock.find($(".close")).click(() => alertBlock.hide());
 
     // ============== Helpers ===============
-    const setCookie = (key, value, expiry = 24) => {
-        const expires = new Date();
-        expires.setTime(expires.getTime() + (expiry * 24 * 60 * 60 * 1000));
-        document.cookie = `${key}=${value};expires=${expires.toISOString()};samesite=strict`;
-    };
+    const getFromLocalStorage = key => parseJSON(localStorage.getItem(key));
+    const setToLocalStorage = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
-    const getCookie = (key) => {
-        if (document.cookie) {
-            const cookie = document.cookie.split("; ").find(x => x.startsWith(key));
-            return cookie && JSON.parse(cookie.split(/=(.+)/)[1]);
+    const sendMessage = message => {
+        const settings = getFromLocalStorage(SETTINGS_KEY) || {};
+
+        if (settings.slack_hook_url) {
+            $.ajax({
+                type: "POST",
+                url: "/post-to-slack",
+                data: JSON.stringify({
+                    text: message,
+                    hookUrl: settings.slack_hook_url,
+                }),
+                contentType: "application/json",
+                dataType: "json",
+            });
         }
-        return null;
     };
 
     const getPaymentSDKInstance = (deviceId) => {
-        const settings = getCookie(COOKIE_NAME) || {};
+        const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
         return new window.XcooBee.XcooBeePaymentSDK({
             campaignId: settings.campaign_id,
@@ -53,11 +58,11 @@ $(() => {
     };
 
     const getSDKInstance = () => {
-        const settings = getCookie(COOKIE_NAME) || {};
+        const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
         try {
             const config = new window.XcooBee.sdk.Config({
-                apiUrlRoot: "https://api.xcoobee.net",
+                apiUrlRoot: "https://testapi.xcoobee.net/Test",
                 apiKey: settings.api_key,
                 apiSecret: settings.api_secret,
                 campaignId: settings.campaign_id,
@@ -145,24 +150,25 @@ $(() => {
     });
 
     // ============= Settings page ===========
-    const cookieValue = getCookie(COOKIE_NAME);
-    Object.keys(cookieValue || {}).forEach((name) => {
-        $(`[name="${name}"]`).val(cookieValue[name]);
+    const settingsValues = getFromLocalStorage(SETTINGS_KEY) || {};
+
+    Object.keys(settingsValues).forEach((name) => {
+        $(`[name="${name}"]`).val(settingsValues[name]);
     });
     $("form.settings-form").submit((e) => {
         e.preventDefault();
     });
     $("button.submit-settings-form").click(function () {
-        let existingCookies = getCookie(COOKIE_NAME) || {};
+        let settingsValues = getFromLocalStorage(SETTINGS_KEY) || {};
         const formData = $(this.form).serializeArray();
 
         formData.forEach((item) => {
-            existingCookies = Object.assign(existingCookies, {
+            settingsValues = Object.assign(settingsValues, {
                 [item.name]: item.value,
             });
         });
-        if (Object.keys(existingCookies).length) {
-            setCookie(COOKIE_NAME, JSON.stringify(existingCookies));
+        if (Object.keys(settingsValues).length) {
+            setToLocalStorage(SETTINGS_KEY, settingsValues);
         }
         handleSuccess("Settings saved");
     });
@@ -258,7 +264,7 @@ $(() => {
         .submit(e => e.preventDefault())
         .validate({
             submitHandler: function () {
-                const settings = getCookie(COOKIE_NAME) || {};
+                const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
                 if (!settings.campaign_id) {
                     alertBlock.show();
@@ -282,16 +288,38 @@ $(() => {
         let kitchenTimer;
 
         const parseReference = sections => {
+            let items;
+            let roomNumber;
+            let notes;
+            let userName;
+
             if (Array.isArray(sections)) {
                 const section = sections.find(item => item.section_id === "2");
+                const zeroSection = sections.find(item => item.section_id === "0");
+
+                if (zeroSection) {
+                    const firstNameField = zeroSection.fields.find(field => field.dataTypeId === 100);
+                    const lastNameField = zeroSection.fields.find(field => field.dataTypeId === 120);
+
+                    userName = [firstNameField && firstNameField.value, lastNameField && lastNameField.value].filter(Boolean).join(" ");
+                }
 
                 if (section) {
-                    const field = section.fields.find(field => field.dataTypeId === 9997);
+                    const referenceField = section.fields.find(field => field.dataTypeId === 9997);
+                    const notesField = section.fields.find(field => field.dataTypeId === 9998);
 
-                    if (field.value) {
-                        return field.value
+                    if (notesField.value) {
+                        notes = notesField.value;
+                    }
+
+                    if (referenceField.value) {
+                        items = referenceField.value
                             .split("\n")
                             .map(itemRef => {
+                                if (/^xb_room_number:/.test(itemRef)) {
+                                    roomNumber = itemRef.split(":")[1];
+                                    return;
+                                }
                                 const [name, price] = itemRef.split("-");
 
                                 if (name) {
@@ -309,26 +337,11 @@ $(() => {
                     }
                 }
             }
-            return null;
-        };
-
-        const getNotes = sections => {
-            if (Array.isArray(sections)) {
-                const section = sections.find(item => item.section_id === "2");
-
-                if (section) {
-                    const field = section.fields.find(field => field.dataTypeId === 9998);
-
-                    if (field.value) {
-                        return field.value;
-                    }
-                }
-            }
-            return null;
+            return { items, roomNumber, notes, userName };
         };
 
         const renderOrders = () => {
-            const settings = getCookie(COOKIE_NAME) || {};
+            const settings = getFromLocalStorage(SETTINGS_KEY) || {};
             const orders = parseJSON(localStorage.getItem(`${settings.campaign_id}-kitchen-orders`)) || [];
             const rows = orders.map(order => `
                 <tr id="${order.id}">
@@ -337,6 +350,8 @@ $(() => {
                             <i class="fa fa-chevron-${toggledRows[order.id] ? "up" : "down"}" aria-hidden="true"/>
                         </button>
                     </td>
+                    <td class="text-right">${order.roomNumber || ""}</td>
+                    <td>${order.userName || ""}</td>
                     <td>${new Date(order.in).getHours()}:${new Date(order.in).getMinutes()}</td>
                     <td>${order.start ? `${new Date(order.start).getHours()}:${new Date(order.start).getMinutes()}` : ""}</td>
                     <td>${order.finish ? `${new Date(order.finish).getHours()}:${new Date(order.finish).getMinutes()}` : ""}</td>
@@ -356,13 +371,12 @@ $(() => {
                 </tr>
                 <tr class="${toggledRows[order.id] ? "" : "d-none"}">
                     <td></td>
-                    <td colspan="5">
+                    <td colspan="7">
                         <table class="table my-0">
                             <thead>
                                 <tr>
                                     <th>Item</th>
                                     <th class="text-right">Qty</th>
-                                    <th class="text-right">Price</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -370,12 +384,11 @@ $(() => {
                                     <tr>
                                         <td>${item.name}</td>    
                                         <td class="text-right">${item.qty}</td>    
-                                        <td class="text-right">${item.price}</td>    
                                     </tr>
                                 `).join("")}
                                 ${order.notes ? `
                                     <tr>
-                                        <td colspan="3">
+                                        <td colspan="2">
                                             <b class="font-bold"">Notes</b>
                                             <p>${order.notes}</p>
                                         </td>
@@ -389,7 +402,7 @@ $(() => {
             if (rows.length) {
                 $("#kitchen-orders-table > tbody").html(rows.join(""));
             } else {
-                $("#kitchen-orders-table > tbody").html(`<tr><td colspan="6" class="text-center">No orders found</td></tr>`);
+                $("#kitchen-orders-table > tbody").html(`<tr><td colspan="8" class="text-center">No orders found</td></tr>`);
             }
             orders.forEach(order => {
                 $(`#${order.id} [data-toggle]`).click(() => {
@@ -411,17 +424,7 @@ $(() => {
                         ...item,
                         start: Date.now()
                     }) : item)));
-                    if (slackHookUrl) {
-                        $.ajax({
-                            type: "POST",
-                            url: slackHookUrl,
-                            data: JSON.stringify({
-                                text: `Dear ${order.fullName}: this your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`
-                            }),
-                            contentType: "application/json;",
-                            dataType: "json",
-                        });
-                    }
+                    sendMessage(`Dear ${order.userName}: this your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`);
                     renderOrders();
                 });
 
@@ -432,36 +435,35 @@ $(() => {
                         ...item,
                         finish: Date.now()
                     }) : item)));
-                    if (slackHookUrl) {
-                        $.ajax({
-                            type: "POST",
-                            url: slackHookUrl,
-                            data: {
-                                text: "Your order is complete and on its way to you. Thank you again. \nYour Accor kitchen and room service team."
-                            },
-                            contentType: "application/json;",
-                            dataType: "json",
-                        });
-                    }
+                    sendMessage("Your order is complete and on its way to you. Thank you again. \nYour Accor kitchen and room service team.");
                     renderOrders();
                 });
             });
         };
 
         const displayKitchenOrders = (res) => {
-            const settings = getCookie(COOKIE_NAME) || {};
+            const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
             if (res.result && res.result && res.result.data && res.result.data.length) {
                 const orders = parseJSON(localStorage.getItem(`${settings.campaign_id}-kitchen-orders`)) || [];
                 const events = res.result.data.filter(item => item.event_type === "payment_success" && !orders.some(order => order.id === item.event_id));
                 const newOrders = [
                     ...events
-                        .map(event => ({
-                            in: Date.now(),
-                            id: event.event_id,
-                            items: event.payload && typeof event.payload === "object" ? parseReference(event.payload.dataTypes) : [],
-                            notes: event.payload && typeof event.payload === "object" ? getNotes(event.payload.dataTypes) : null
-                        }))
+                        .map(event => {
+                            if (event.payload && typeof event.payload === "object") {
+                                return {
+                                    in: Date.now(),
+                                    id: event.event_id,
+                                    ...parseReference(event.payload.dataTypes),
+                                };
+                            }
+
+                            return {
+                                in: Date.now(),
+                                id: event.event_id,
+                                items: [],
+                            };
+                        })
                         .filter(item => item.items && item.items.length),
                     ...orders
                 ];
