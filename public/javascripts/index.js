@@ -424,7 +424,7 @@ $(() => {
                         ...item,
                         start: Date.now()
                     }) : item)));
-                    sendMessage(`Dear ${order.userName}: this your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`);
+                    sendMessage(`Dear ${order.userName || "Customer"}: this your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`);
                     renderOrders();
                 });
 
