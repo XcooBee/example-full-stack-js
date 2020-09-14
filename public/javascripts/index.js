@@ -346,7 +346,7 @@ $(() => {
             const rows = orders.map(order => `
                 <tr id="${order.id}">
                     <td class="text-center">
-                        <button class="btn btn-light py-0" data-toggle>
+                        <button class="btn btn-light py-0" data-toggle="row">
                             <i class="fa fa-chevron-${toggledRows[order.id] ? "up" : "down"}" aria-hidden="true"/>
                         </button>
                     </td>
@@ -358,15 +358,18 @@ $(() => {
                     <td class="text-right">${order.items.reduce((total, item) => total + (item.qty || 1), 0)}</td>
                     <td class="text-center">
                         ${order.start ? "" : `
-                            <button class="btn btn-light py-0" data-start>
+                            <button class="btn btn-light py-0" data-start data-toggle="tooltip" data-placement="top" title="Start working on this order">
                                 <i class="fa fa-play" aria-hidden="true"/>
                             </button>
                         `}
                         ${!order.start || order.finish ? "" : `
-                            <button class="btn btn-light py-0" data-finish>
+                            <button class="btn btn-light py-0" data-finish data-toggle="tooltip" data-placement="top" title="Mark this order as complete">
                                 <i class="fa fa-check" aria-hidden="true"/>
                             </button>
                         `}
+                        <button class="btn btn-light py-0" data-toggle="tooltip" data-placement="top" title="Send message to guest">
+                            <i class="fa fa-question" aria-hidden="true"/>
+                        </button>
                     </td>
                 </tr>
                 <tr class="${toggledRows[order.id] ? "" : "d-none"}">
@@ -404,16 +407,18 @@ $(() => {
             } else {
                 $("#kitchen-orders-table > tbody").html(`<tr><td colspan="8" class="text-center">No orders found</td></tr>`);
             }
+            $("[data-toggle=\"tooltip\"]").tooltip();
+
             orders.forEach(order => {
-                $(`#${order.id} [data-toggle]`).click(() => {
+                $(`#${order.id} [data-toggle="row"]`).click(() => {
                     toggledRows[order.id] = !toggledRows[order.id];
 
                     if (toggledRows[order.id]) {
                         $(`#${order.id} + tr`).removeClass("d-none");
-                        $(`#${order.id} [data-toggle] .fa`).addClass("fa-chevron-up").removeClass("fa-chevron-down");
+                        $(`#${order.id} [data-toggle="row"] .fa`).addClass("fa-chevron-up").removeClass("fa-chevron-down");
                     } else {
                         $(`#${order.id} + tr`).addClass("d-none");
-                        $(`#${order.id} [data-toggle] .fa`).addClass("fa-chevron-down").removeClass("fa-chevron-up");
+                        $(`#${order.id} [data-toggle="row"] .fa`).addClass("fa-chevron-down").removeClass("fa-chevron-up");
                     }
                 });
 
@@ -424,7 +429,7 @@ $(() => {
                         ...item,
                         start: Date.now()
                     }) : item)));
-                    sendMessage(`Dear ${order.userName || "Customer"}: this your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`);
+                    sendMessage(`Dear ${order.userName || "Customer"}:\nThis is your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`);
                     renderOrders();
                 });
 
@@ -435,7 +440,7 @@ $(() => {
                         ...item,
                         finish: Date.now()
                     }) : item)));
-                    sendMessage("Your order is complete and on its way to you. Thank you again. \nYour Accor kitchen and room service team.");
+                    sendMessage("Your order is complete and on its way to you. Thank you again.\nYour Accor kitchen and room service team.");
                     renderOrders();
                 });
             });
