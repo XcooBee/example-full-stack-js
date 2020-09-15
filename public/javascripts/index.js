@@ -407,6 +407,7 @@ $(() => {
             } else {
                 $("#kitchen-orders-table > tbody").html(`<tr><td colspan="8" class="text-center">No orders found</td></tr>`);
             }
+            $(".tooltip").tooltip("hide");
             $("[data-toggle=\"tooltip\"]").tooltip();
 
             orders.forEach(order => {
