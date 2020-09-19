@@ -289,9 +289,10 @@ $(() => {
 
         const parseReference = sections => {
             let items;
-            let roomNumber;
+            let roomNumber="100";  // default room to 100 if not provided this is only a marker, the real change happens during display
             let notes;
             let userName;
+            
 
             if (Array.isArray(sections)) {
                 const section = sections.find(item => item.section_id === "2");
@@ -317,7 +318,7 @@ $(() => {
                             .split("\n")
                             .map(itemRef => {
                                 if (/^xb_room_number:/.test(itemRef)) {
-                                    roomNumber = itemRef.split(":")[1];
+                                    roomNumber = itemRef.split(":")[1];                                    
                                     return;
                                 }
                                 const [name, price] = itemRef.split("-");
@@ -337,6 +338,8 @@ $(() => {
                     }
                 }
             }
+                       
+           
             return { items, roomNumber, notes, userName };
         };
 
@@ -350,7 +353,7 @@ $(() => {
                             <i class="fa fa-chevron-${toggledRows[order.id] ? "up" : "down"}" aria-hidden="true"/>
                         </button>
                     </td>
-                    <td class="text-right">${order.roomNumber || ""}</td>
+                    <td class="text-right">${order.roomNumber == 'undefined' ? '100': order.roomNumber }</td>
                     <td>${order.userName || ""}</td>
                     <td>${new Date(order.in).getHours()}:${new Date(order.in).getMinutes()}</td>
                     <td>${order.start ? `${new Date(order.start).getHours()}:${new Date(order.start).getMinutes()}` : ""}</td>
