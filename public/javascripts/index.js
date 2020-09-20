@@ -60,9 +60,10 @@ $(() => {
     const getSDKInstance = () => {
         const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
+        // set this to the instance of the API that you need to access currently we assume production
         try {
             const config = new window.XcooBee.sdk.Config({
-                apiUrlRoot: "https://testapi.xcoobee.net/Test",
+                apiUrlRoot: "https://api.xcoobee.net",   
                 apiKey: settings.api_key,
                 apiSecret: settings.api_secret,
                 campaignId: settings.campaign_id,
@@ -444,7 +445,7 @@ $(() => {
                         ...item,
                         finish: Date.now()
                     }) : item)));
-                    sendMessage("Your order is complete and on its way to you. Thank you again.\nYour Accor kitchen and room service team.");
+                    sendMessage("Your order is complete and on its way to you. Thank you again.\nYour hotel kitchen and room service team.");
                     renderOrders();
                 });
             });
