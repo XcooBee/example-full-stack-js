@@ -485,12 +485,12 @@ $(() => {
 
         const poolKitchenEvents = () => {
             const xcooBeeSdk = getSDKInstance();
-
+            // poll the system for new information every 5 minutes
             xcooBeeSdk.system
                 .getEvents()
                 .then(displayKitchenOrders)
                 .then(() => {
-                    kitchenTimer = setTimeout(() => poolKitchenEvents(), 5000);
+                    kitchenTimer = setTimeout(() => poolKitchenEvents(), 300000);
                 })
                 .catch(err => {
                     console.error(err);
