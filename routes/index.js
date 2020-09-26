@@ -1,12 +1,13 @@
 "use strict";
 
-const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const Handlebars = require("handlebars");
-const pdf = require('html-pdf');
+const pdf = require("html-pdf");
 const { NodeXcooBeePaymentSDK } = require("@xcoobee/payment-sdk");
+
+const rp = require("request-promise");
 
 const router = express.Router();
 
@@ -32,17 +33,17 @@ router
 
         sdk
             .createPayQr(params)
-            .then(qr => {
+            .then((qr) => {
                 const template = fs.readFileSync(path.resolve(__dirname, "../templates/invoice.hbs"), "utf8");
                 const tmpl = Handlebars.compile(template);
-                const tmp = tmpl({ ...params, qr, formUrl: sdk.createPayUrl(params) });
+                const tmp = tmpl(Object.assign({}, params, { qr, formUrl: sdk.createPayUrl(params) }));
 
                 pdf.create(tmp).toStream((err, stream) => {
                     if (err) {
                         return next(err);
                     }
                     res.attachment("invoice.pdf");
-                    stream.pipe(res)
+                    stream.pipe(res);
                 });
             })
             .catch(err => next(err));
@@ -63,6 +64,21 @@ router
                 },
             ],
         });
+    })
+    .get("/kitchen-orders", (req, res) => {
+        res.render("kitchenOrders", { title: "Kitchen Orders" });
+    })
+    .post("/post-to-slack", (req, res, next) => {
+        rp
+            .post({
+                uri: req.body.hookUrl,
+                body: {
+                    text: req.body.text,
+                },
+                json: true,
+            })
+            .then(() => res.send())
+            .catch(err => next(err));
     });
 
 module.exports = router;

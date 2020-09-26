@@ -1,6 +1,14 @@
 /* eslint-disable */
 
-const COOKIE_NAME = "settings";
+const SETTINGS_KEY = "xb_efa_settings";
+
+const parseJSON = (str) => {
+    try {
+        return JSON.parse(str);
+    } catch (e) {
+        return null;
+    }
+};
 
 $(() => {
     // ============== Alerts ===============
@@ -19,22 +27,28 @@ $(() => {
     alertBlock.find($(".close")).click(() => alertBlock.hide());
 
     // ============== Helpers ===============
-    const setCookie = (key, value, expiry = 24) => {
-        const expires = new Date();
-        expires.setTime(expires.getTime() + (expiry * 24 * 60 * 60 * 1000));
-        document.cookie = `${key}=${value};expires=${expires.toISOString()};samesite=strict`;
-    };
+    const getFromLocalStorage = key => parseJSON(localStorage.getItem(key));
+    const setToLocalStorage = (key, value) => localStorage.setItem(key, JSON.stringify(value));
 
-    const getCookie = (key) => {
-        if (document.cookie) {
-            const cookie = document.cookie.split("; ").find(x => x.startsWith(key));
-            return cookie && JSON.parse(cookie.split(/=(.+)/)[1]);
+    const sendMessage = message => {
+        const settings = getFromLocalStorage(SETTINGS_KEY) || {};
+
+        if (settings.slack_hook_url) {
+            $.ajax({
+                type: "POST",
+                url: "/post-to-slack",
+                data: JSON.stringify({
+                    text: message,
+                    hookUrl: settings.slack_hook_url,
+                }),
+                contentType: "application/json",
+                dataType: "json",
+            });
         }
-        return null;
     };
 
     const getPaymentSDKInstance = (deviceId) => {
-        const settings = getCookie(COOKIE_NAME) || {};
+        const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
         return new window.XcooBee.XcooBeePaymentSDK({
             campaignId: settings.campaign_id,
@@ -44,11 +58,12 @@ $(() => {
     };
 
     const getSDKInstance = () => {
-        const settings = getCookie(COOKIE_NAME) || {};
+        const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
+        // set this to the instance of the API that you need to access currently we assume production
         try {
             const config = new window.XcooBee.sdk.Config({
-                apiUrlRoot: "https://api.xcoobee.net",
+                apiUrlRoot: "https://api.xcoobee.net",   
                 apiKey: settings.api_key,
                 apiSecret: settings.api_secret,
                 campaignId: settings.campaign_id,
@@ -136,24 +151,25 @@ $(() => {
     });
 
     // ============= Settings page ===========
-    const cookieValue = getCookie(COOKIE_NAME);
-    Object.keys(cookieValue || {}).forEach((name) => {
-        $(`[name="${name}"]`).val(cookieValue[name]);
+    const settingsValues = getFromLocalStorage(SETTINGS_KEY) || {};
+
+    Object.keys(settingsValues).forEach((name) => {
+        $(`[name="${name}"]`).val(settingsValues[name]);
     });
     $("form.settings-form").submit((e) => {
         e.preventDefault();
     });
     $("button.submit-settings-form").click(function () {
-        let existingCookies = getCookie(COOKIE_NAME) || {};
+        let settingsValues = getFromLocalStorage(SETTINGS_KEY) || {};
         const formData = $(this.form).serializeArray();
 
         formData.forEach((item) => {
-            existingCookies = Object.assign(existingCookies, {
+            settingsValues = Object.assign(settingsValues, {
                 [item.name]: item.value,
             });
         });
-        if (Object.keys(existingCookies).length) {
-            setCookie(COOKIE_NAME, JSON.stringify(existingCookies));
+        if (Object.keys(settingsValues).length) {
+            setToLocalStorage(SETTINGS_KEY, settingsValues);
         }
         handleSuccess("Settings saved");
     });
@@ -249,7 +265,7 @@ $(() => {
         .submit(e => e.preventDefault())
         .validate({
             submitHandler: function () {
-                const settings = getCookie(COOKIE_NAME) || {};
+                const settings = getFromLocalStorage(SETTINGS_KEY) || {};
 
                 if (!settings.campaign_id) {
                     alertBlock.show();
@@ -266,4 +282,223 @@ $(() => {
                 window.open(`/generate-invoice?ref=${properties.payment_reference}&amount=${properties.payment_amount}&campaignId=${settings.campaign_id}`, "_blank");
             },
         });
+
+    // ============= Kitchen orders page ===========
+    if ($("#kitchen-orders-table").length) {
+        const toggledRows = {};
+        let kitchenTimer;
+
+        const parseReference = sections => {
+            let items;
+            let roomNumber="100";  // default room to 100 if not provided this is only a marker, the real change happens during display
+            let notes;
+            let userName;
+            
+
+            if (Array.isArray(sections)) {
+                const section = sections.find(item => item.section_id === "2");
+                const zeroSection = sections.find(item => item.section_id === "0");
+
+                if (zeroSection) {
+                    const firstNameField = zeroSection.fields.find(field => field.dataTypeId === 100);
+                    const lastNameField = zeroSection.fields.find(field => field.dataTypeId === 120);
+
+                    userName = [firstNameField && firstNameField.value, lastNameField && lastNameField.value].filter(Boolean).join(" ");
+                }
+
+                if (section) {
+                    const referenceField = section.fields.find(field => field.dataTypeId === 9997);
+                    const notesField = section.fields.find(field => field.dataTypeId === 9998);
+
+                    if (notesField.value) {
+                        notes = notesField.value;
+                    }
+
+                    if (referenceField.value) {
+                        items = referenceField.value
+                            .split("\n")
+                            .map(itemRef => {
+                                if (/^xb_room_number:/.test(itemRef)) {
+                                    roomNumber = itemRef.split(":")[1];                                    
+                                    return;
+                                }
+                                const [name, price] = itemRef.split("-");
+
+                                if (name) {
+                                    const [itemName, ...options] = name.split("+");
+                                    const [, itemNameWithoutQty, qty] = /(.+)(?:\((\d+)\))?$/.exec(itemName);
+
+                                    return {
+                                        name: [itemNameWithoutQty, ...options].map(name => name.trim()).join(" + "),
+                                        qty: +qty || 1,
+                                        price
+                                    };
+                                }
+                            })
+                            .filter(Boolean);
+                    }
+                }
+            }
+                       
+           
+            return { items, roomNumber, notes, userName };
+        };
+
+        const renderOrders = () => {
+            const settings = getFromLocalStorage(SETTINGS_KEY) || {};
+            const orders = parseJSON(localStorage.getItem(`${settings.campaign_id}-kitchen-orders`)) || [];
+            const rows = orders.map(order => `
+                <tr id="${order.id}">
+                    <td class="text-center">
+                        <button class="btn btn-light py-0" data-toggle="row">
+                            <i class="fa fa-chevron-${toggledRows[order.id] ? "up" : "down"}" aria-hidden="true"/>
+                        </button>
+                    </td>
+                    <td class="text-right">${order.roomNumber == 'undefined' ? '100': order.roomNumber }</td>
+                    <td>${order.userName || ""}</td>
+                    <td>${new Date(order.in).getHours()}:${new Date(order.in).getMinutes()}</td>
+                    <td>${order.start ? `${new Date(order.start).getHours()}:${new Date(order.start).getMinutes()}` : ""}</td>
+                    <td>${order.finish ? `${new Date(order.finish).getHours()}:${new Date(order.finish).getMinutes()}` : ""}</td>
+                    <td class="text-right">${order.items.reduce((total, item) => total + (item.qty || 1), 0)}</td>
+                    <td class="text-center">
+                        ${order.start ? "" : `
+                            <button class="btn btn-light py-0" data-start data-toggle="tooltip" data-placement="top" title="Start working on this order">
+                                <i class="fa fa-play" aria-hidden="true"/>
+                            </button>
+                        `}
+                        ${!order.start || order.finish ? "" : `
+                            <button class="btn btn-light py-0" data-finish data-toggle="tooltip" data-placement="top" title="Mark this order as complete">
+                                <i class="fa fa-check" aria-hidden="true"/>
+                            </button>
+                        `}
+                        <button class="btn btn-light py-0" data-toggle="tooltip" data-placement="top" title="Send message to guest">
+                            <i class="fa fa-question" aria-hidden="true"/>
+                        </button>
+                    </td>
+                </tr>
+                <tr class="${toggledRows[order.id] ? "" : "d-none"}">
+                    <td></td>
+                    <td colspan="7">
+                        <table class="table my-0">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-right">Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${order.items.map(item => `
+                                    <tr>
+                                        <td>${item.name}</td>    
+                                        <td class="text-right">${item.qty}</td>    
+                                    </tr>
+                                `).join("")}
+                                ${order.notes ? `
+                                    <tr>
+                                        <td colspan="2">
+                                            <b class="font-bold"">Notes</b>
+                                            <p>${order.notes}</p>
+                                        </td>
+                                    </tr>` : ""}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                `);
+
+            if (rows.length) {
+                $("#kitchen-orders-table > tbody").html(rows.join(""));
+            } else {
+                $("#kitchen-orders-table > tbody").html(`<tr><td colspan="8" class="text-center">No orders found</td></tr>`);
+            }
+            $(".tooltip").tooltip("hide");
+            $("[data-toggle=\"tooltip\"]").tooltip();
+
+            orders.forEach(order => {
+                $(`#${order.id} [data-toggle="row"]`).click(() => {
+                    toggledRows[order.id] = !toggledRows[order.id];
+
+                    if (toggledRows[order.id]) {
+                        $(`#${order.id} + tr`).removeClass("d-none");
+                        $(`#${order.id} [data-toggle="row"] .fa`).addClass("fa-chevron-up").removeClass("fa-chevron-down");
+                    } else {
+                        $(`#${order.id} + tr`).addClass("d-none");
+                        $(`#${order.id} [data-toggle="row"] .fa`).addClass("fa-chevron-down").removeClass("fa-chevron-up");
+                    }
+                });
+
+                $(`#${order.id} [data-start]`).click(() => {
+                    const items = parseJSON(localStorage.getItem(`${settings.campaign_id}-kitchen-orders`)) || [];
+
+                    localStorage.setItem(`${settings.campaign_id}-kitchen-orders`, JSON.stringify(items.map(item => item.id === order.id ? ({
+                        ...item,
+                        start: Date.now()
+                    }) : item)));
+                    sendMessage(`Dear ${order.userName || "Customer"}:\nThis is your hotel room service. We wanted to let you know that we have started working on your room-service order and we will back in touch when your order is ready to be brought to your room.`);
+                    renderOrders();
+                });
+
+                $(`#${order.id} [data-finish]`).click(() => {
+                    const items = parseJSON(localStorage.getItem(`${settings.campaign_id}-kitchen-orders`)) || [];
+
+                    localStorage.setItem(`${settings.campaign_id}-kitchen-orders`, JSON.stringify(items.map(item => item.id === order.id ? ({
+                        ...item,
+                        finish: Date.now()
+                    }) : item)));
+                    sendMessage("Your order is complete and on its way to you. Thank you again.\nYour hotel kitchen and room service team.");
+                    renderOrders();
+                });
+            });
+        };
+
+        const displayKitchenOrders = (res) => {
+            const settings = getFromLocalStorage(SETTINGS_KEY) || {};
+
+            if (res.result && res.result && res.result.data && res.result.data.length) {
+                const orders = parseJSON(localStorage.getItem(`${settings.campaign_id}-kitchen-orders`)) || [];
+                const events = res.result.data.filter(item => item.event_type === "payment_success" && !orders.some(order => order.id === item.event_id));
+                const newOrders = [
+                    ...events
+                        .map(event => {
+                            if (event.payload && typeof event.payload === "object") {
+                                return {
+                                    in: Date.now(),
+                                    id: event.event_id,
+                                    ...parseReference(event.payload.dataTypes),
+                                };
+                            }
+
+                            return {
+                                in: Date.now(),
+                                id: event.event_id,
+                                items: [],
+                            };
+                        })
+                        .filter(item => item.items && item.items.length),
+                    ...orders
+                ];
+
+                localStorage.setItem(`${settings.campaign_id}-kitchen-orders`, JSON.stringify(newOrders));
+            }
+            renderOrders();
+        };
+
+        const poolKitchenEvents = () => {
+            const xcooBeeSdk = getSDKInstance();
+            // poll the system for new information every 5 minutes
+            xcooBeeSdk.system
+                .getEvents()
+                .then(displayKitchenOrders)
+                .then(() => {
+                    kitchenTimer = setTimeout(() => poolKitchenEvents(), 300000);
+                })
+                .catch(err => {
+                    console.error(err);
+                    handleError(err.message);
+                });
+        };
+
+        renderOrders();
+        poolKitchenEvents();
+    }
 });
